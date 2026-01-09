@@ -9,13 +9,13 @@ export const PRICING = {
     },
   
     work: { upTo7: 20000, over7: 40000 },
-    profitCoef: 0.05, // ✅ було 0.2
+    profitCoef: 0.05, // profit тільки від модулів
   
     batteries: {
-      none:  { label: "Без акума / свій", price: 0, energyWh: 0 },
-      "3kW": { label: "LiFePO4 3 кВт", price: 25000, energyWh: 3000 },
-      "4.5kW": { label: "LiFePO4 4.5 кВт", price: 35000, energyWh: 4500 },
-      "6kW": { label: "LiFePO4 6 кВт", price: 45000, energyWh: 6000 }
+      none:    { label: "Без акума / свій", price: 0,     energyWh: 0 },
+      "3kW":   { label: "LiFePO4 3 кВт",    price: 25000, energyWh: 3000 },
+      "4.5kW": { label: "LiFePO4 4.5 кВт",  price: 35000, energyWh: 4500 },
+      "6kW":   { label: "LiFePO4 6 кВт",    price: 45000, energyWh: 6000 }
     },
   
     cases: {
@@ -26,9 +26,18 @@ export const PRICING = {
     baseIncludedCost: 6000,
   
     options: {
-      charger220:   { label: "Зарядний пристрій 220В",   price: 6000 },
-      charger12_24: { label: "Зарядний пристрій 12/24В", price: 5400 },
-      magneticFeet: { label: "Магнітні ніжки (за шт)", price: 1300 }
+      charger220:    { label: "Зарядний пристрій 220В",        price: 6000 },
+      charger12_24:  { label: "Зарядний пристрій 12/24В",      price: 5400 },
+      magneticFeet:  { label: "Магнітні ніжки (за шт)",        price: 1300 },
+  
+      // ✅ нові опції
+      logo:          { label: "Лого / маркування",             price: 0 },
+      extraCooling:  { label: "Додаткове охолодження",         price: 0 },
+      callsign:      { label: "Позивний / маркування",         price: 0 },
+  
+      // ⚠️ ціна рахується в App.jsx: + (ціна вибраного акума)
+      // тут 0, щоб структура PRICING не ламалась
+      extraBattery:  { label: "Додатковий акум (ще один)",      price: 0 }
     },
   
     nominalVoltage: 28
