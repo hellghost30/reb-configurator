@@ -150,4 +150,41 @@
     color:var(--muted);
     white-space:nowrap;
   }
+  /* ===== Branding block (logo/callsign/paint) ===== */
+.sectionTitle{
+    font-size:12px;
+    color:var(--muted);
+    margin:10px 0 8px;
+  }
+  
+  .block{
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(255,255,255,.03);
+    border-radius:14px;
+    padding:10px;
+  }
+  
+  /* Checkbox cards: нормальний мобільний вигляд */
+  .chk{
+    width:100%;
+  }
+  
+  .chk input{
+    width:18px;
+    height:18px;
+    flex:0 0 18px;
+  }
+  
+  /* Для рядів з чекбоксами: на мобілці — 1 в ряд, на ширших — 2 */
+  .optGrid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  
+  @media (min-width: 640px){
+    .optGrid{
+      grid-template-columns:1fr 1fr;
+    }
+  }
   

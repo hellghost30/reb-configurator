@@ -1,3 +1,4 @@
+// App.jsx
 import React, { useMemo, useState } from "react";
 import { PRICING } from "./pricing";
 import {
@@ -25,38 +26,6 @@ function buildBands() {
 
 const MAX_MODULES = 10;
 
-/**
- * Мітки частот (вертикальні риски) — редагуй тут.
- * Значення — в MHz. Це орієнтири/зони.
- */
-const FREQ_MARKERS = [
-  // FPV / RC
-  { mhz: 433, group: "FPV", label: "433" },
-  { mhz: 868, group: "FPV", label: "868" },
-  { mhz: 915, group: "FPV", label: "915" },
-  { mhz: 2400, group: "FPV", label: "2.4" },
-
-  // FPV Video (analog/digital zones)
-  { mhz: 1200, group: "FPV", label: "1.2" },   // 1.2GHz відео (орієнтир)
-  { mhz: 5800, group: "FPV", label: "5.8" },
-
-  // DJI (Mavic / OcuSync орієнтири)
-  { mhz: 2400, group: "Mavic", label: "2.4" },
-  { mhz: 5100, group: "Mavic", label: "5.1" },
-  { mhz: 5800, group: "Mavic", label: "5.8" },
-
-  // Autel (орієнтири)
-  { mhz: 2400, group: "Autel", label: "2.4" },
-  { mhz: 5800, group: "Autel", label: "5.8" }
-];
-
-// Кольори груп (inline, щоб не чіпати CSS-файл)
-const MARKER_COLORS = {
-  FPV: "rgba(78,161,255,.95)",
-  Mavic: "rgba(66,211,146,.95)",
-  Autel: "rgba(255,204,102,.95)"
-};
-
 export default function App() {
   const bands = useMemo(() => buildBands(), []);
 
@@ -71,24 +40,28 @@ export default function App() {
   const [caseType, setCaseType] = useState("auto");
 
   const [battery, setBattery] = useState("none");
-  const [extraBattery, setExtraBattery] = useState(false); // ✅ додатковий акум (1 шт)
+  // ✅ додатковий акум тепер можна вибрати будь-який (або "немає")
+  const [extraBatteryType, setExtraBatteryType] = useState("none");
+
   const [magQty, setMagQty] = useState(0);
 
-  // ✅ опції
+  // ✅ опції (без охолодження)
   const [opt, setOpt] = useState({
     charger220: false,
     charger12_24: false,
-    logo: false,          // ✅ лого
-    extraCooling: false   // ✅ доп охолодження (узгоджено з PRICING.options.extraCooling)
+
+    logo: false,
+    callsign: false,
+    uniquePaint: false
   });
 
-  // ✅ позивний (в заявці)
-  const [callsign, setCallsign] = useState("");
+  const [callsignText, setCallsignText] = useState("");
 
   const [toast, setToast] = useState("");
 
   const counts = useMemo(() => {
-    let c50 = 0, c100 = 0;
+    let c50 = 0,
+      c100 = 0;
     for (const k in sel) {
       if (sel[k] === "50W") c50++;
       if (sel[k] === "100W") c100++;
@@ -109,12 +82,7 @@ export default function App() {
       const width = PRICING.modules[v].bandwidthMHz; // 100 або 170
       const end = Math.min(PRICING.rangeMaxMHz, start + width);
 
-      segs.push({
-        id: b.id,
-        type: v, // "50W" | "100W"
-        start,
-        end
-      });
+      segs.push({ id: b.id, type: v, start, end });
     }
     segs.sort((a, b) => a.start - b.start);
     return segs;
@@ -142,9 +110,6 @@ export default function App() {
     const b = PRICING.batteries[battery];
     if (!b || b.energyWh <= 0 || counts.total === 0) return null;
 
-    // ✅ якщо додатковий акум — енергія х2
-    const energyWh = b.energyWh * (extraBattery ? 2 : 1);
-
     const V = PRICING.nominalVoltage;
     const Imin =
       counts.c50 * PRICING.modules["50W"].Imin +
@@ -153,13 +118,13 @@ export default function App() {
       counts.c50 * PRICING.modules["50W"].Imax +
       counts.c100 * PRICING.modules["100W"].Imax;
 
-    const best = energyWh / (V * Imin);
-    const worst = energyWh / (V * Imax);
+    const best = b.energyWh / (V * Imin);
+    const worst = b.energyWh / (V * Imax);
 
     return { best, worst, Imin, Imax };
-  }, [battery, counts, extraBattery]);
+  }, [battery, counts]);
 
-  // ✅ PROFIT тільки від модулів. Зарядка/магніти/акум/корпус/робота/надбавка — без %
+  // ✅ PROFIT тільки від модулів. Все інше — без %
   const finalPrice = useMemo(() => {
     if (counts.total === 0) return 0;
 
@@ -167,14 +132,12 @@ export default function App() {
       counts.c50 * PRICING.modules["50W"].price +
       counts.c100 * PRICING.modules["100W"].price;
 
-    // надбавка 2+ ГГц — окремо, БЕЗ %
     const modulesExtras = hiBandExtraCost;
 
     const caseCost = PRICING.cases[caseType].price;
-    const battCost = PRICING.batteries[battery].price;
 
-    // ✅ додатковий акум = ціна вибраного акума (1 шт)
-    const extraBattCost = extraBattery && battery !== "none" ? PRICING.batteries[battery].price : 0;
+    const battCost = PRICING.batteries[battery]?.price ?? 0;
+    const extraBattCost = PRICING.batteries[extraBatteryType]?.price ?? 0;
 
     const chargerCost =
       (opt.charger220 ? PRICING.options.charger220.price : 0) +
@@ -185,17 +148,15 @@ export default function App() {
       : 0;
     const magCost = mq * PRICING.options.magneticFeet.price;
 
-    // ✅ лого / охолодження (якщо в PRICING немає — буде 0)
-    const logoCost = opt.logo ? (PRICING.options.logo?.price ?? 0) : 0;
-    const coolingCost = opt.extraCooling ? (PRICING.options.extraCooling?.price ?? 0) : 0;
-
-    // “за замовчуванням” — окремо, БЕЗ %
     const baseIncluded = PRICING.baseIncludedCost;
 
-    // робота — окремо, БЕЗ %
     const work = counts.total <= 7 ? PRICING.work.upTo7 : PRICING.work.over7;
 
-    // прибуток — ТІЛЬКИ від модулів (без hiBandExtra)
+    // ✅ бренд/маркування
+    const logoCost = opt.logo ? (PRICING.options.logo?.price ?? 0) : 0;
+    const callsignCost = opt.callsign ? (PRICING.options.callsign?.price ?? 0) : 0;
+    const uniquePaintCost = 0; // договірна
+
     const profit = modulesBase * PRICING.profitCoef;
 
     const total =
@@ -208,12 +169,13 @@ export default function App() {
       chargerCost +
       magCost +
       logoCost +
-      coolingCost +
+      callsignCost +
+      uniquePaintCost +
       work +
       profit;
 
     return Math.round(total);
-  }, [counts, caseType, battery, opt, magQty, hiBandExtraCost, extraBattery]);
+  }, [counts, caseType, battery, extraBatteryType, opt, magQty, hiBandExtraCost]);
 
   const runtimeHint = useMemo(() => {
     if (counts.total === 0)
@@ -238,6 +200,7 @@ export default function App() {
     }
 
     const optLines = [];
+
     if (opt.charger220) optLines.push("• Зарядний пристрій 220В");
     if (opt.charger12_24) optLines.push("• Зарядний пристрій 12/24В");
 
@@ -246,12 +209,16 @@ export default function App() {
       : 0;
     if (mq > 0) optLines.push(`• Магнітні ніжки: ${mq} шт`);
 
-    if (opt.logo) optLines.push("• Лого");
-    if (opt.extraCooling) optLines.push("• Додаткове охолодження");
-    if (extraBattery && battery !== "none") optLines.push("• Додатковий акумулятор: 1 шт");
+    if (extraBatteryType !== "none") {
+      optLines.push(`• Додатковий акумулятор: ${PRICING.batteries[extraBatteryType].label}`);
+    }
 
-    const cs = String(callsign || "").trim();
-    if (cs) optLines.push(`• Позивний: ${cs}`);
+    if (opt.logo) optLines.push("• Логотип підрозділу/бригади на корпусі");
+    if (opt.callsign) {
+      const cs = String(callsignText || "").trim();
+      optLines.push(`• Позивний${cs ? `: ${cs}` : ""}`);
+    }
+    if (opt.uniquePaint) optLines.push("• Унікальне фарбування (ціна договірна)");
 
     const rtLine = runtime
       ? `• Орієнтовний час роботи (28В): ${hoursToHM(runtime.worst)} – ${hoursToHM(runtime.best)}`
@@ -259,9 +226,15 @@ export default function App() {
 
     const lines = [];
     lines.push("Заявка (конструктор РЕБ):");
-    lines.push(`• Модулі: всього ${counts.total} (50 Вт: ${counts.c50} • 100 Вт: ${counts.c100})`);
-    lines.push(`• Діапазони 50 Вт (≈100 МГц): ${chosen50.length ? chosen50.join(", ") : "не обрано"}`);
-    lines.push(`• Діапазони 100 Вт (≈170 МГц): ${chosen100.length ? chosen100.join(", ") : "не обрано"}`);
+    lines.push(
+      `• Модулі: всього ${counts.total} (50 Вт: ${counts.c50} • 100 Вт: ${counts.c100})`
+    );
+    lines.push(
+      `• Діапазони 50 Вт (≈100 МГц): ${chosen50.length ? chosen50.join(", ") : "не обрано"}`
+    );
+    lines.push(
+      `• Діапазони 100 Вт (≈170 МГц): ${chosen100.length ? chosen100.join(", ") : "не обрано"}`
+    );
 
     if (coverageSegments.length) {
       lines.push("• Покриття (за вибором):");
@@ -285,14 +258,14 @@ export default function App() {
     sel,
     caseType,
     battery,
+    extraBatteryType,
     counts,
     runtime,
     opt,
     magQty,
     finalPrice,
     coverageSegments,
-    extraBattery,
-    callsign
+    callsignText
   ]);
 
   function setBand(id, val) {
@@ -322,19 +295,22 @@ export default function App() {
 
     setCaseType("auto");
     setBattery("none");
-    setExtraBattery(false);
+    setExtraBatteryType("none");
     setMagQty(0);
+
     setOpt({
       charger220: false,
       charger12_24: false,
       logo: false,
-      extraCooling: false
+      callsign: false,
+      uniquePaint: false
     });
-    setCallsign("");
+    setCallsignText("");
 
     setToast("");
   }
 
+  // ===== Messenger helpers =====
   function openTelegram(target, text) {
     const t = String(target || "").trim();
     const enc = encodeURIComponent(text || "");
@@ -385,19 +361,6 @@ export default function App() {
     }
   }
 
-  // ===== Markers filtered to current range =====
-  const visibleMarkers = useMemo(() => {
-    const min = PRICING.rangeMinMHz;
-    const max = PRICING.rangeMaxMHz;
-    return FREQ_MARKERS.filter((m) => m.mhz >= min && m.mhz <= max);
-  }, []);
-
-  const legendItems = useMemo(() => {
-    const set = new Set();
-    for (const m of visibleMarkers) set.add(m.group);
-    return Array.from(set);
-  }, [visibleMarkers]);
-
   return (
     <div className="wrap" style={{ paddingBottom: 140 }}>
       <h1>Конструктор РЕБ</h1>
@@ -422,13 +385,9 @@ export default function App() {
             <div key={b.id} className="rangeItem">
               <div className="rangeLeft">
                 <div className="rangeTitle">{b.title}</div>
-                <div className="rangeSub">50W≈100МГц • 100W≈170МГц</div>
+                <div className="rangeSub">50W≈100МГц • 100W≈170Мгц</div>
               </div>
-              <select
-                value={sel[b.id]}
-                onChange={(e) => setBand(b.id, e.target.value)}
-                style={{ minWidth: 130 }}
-              >
+              <select value={sel[b.id]} onChange={(e) => setBand(b.id, e.target.value)} style={{ minWidth: 130 }}>
                 <option value="none">— не потрібно</option>
                 <option value="50W" disabled={sel[b.id] === "none" && !canAddMore}>50 Вт</option>
                 <option value="100W" disabled={sel[b.id] === "none" && !canAddMore}>100 Вт</option>
@@ -441,7 +400,6 @@ export default function App() {
         <div className="freqCardTitle">Покриття частот (візуально)</div>
         <div className="freqWrap">
           <div className="freqBar">
-            {/* сегменти покриття */}
             {coverageSegments.map((s) => {
               const left = mhzToPct(s.start);
               const right = mhzToPct(s.end);
@@ -455,54 +413,12 @@ export default function App() {
                 />
               );
             })}
-
-            {/* ✅ мітки-риски */}
-            {visibleMarkers.map((m, idx) => {
-              const left = mhzToPct(m.mhz);
-              const c = MARKER_COLORS[m.group] || "rgba(255,255,255,.9)";
-              return (
-                <div
-                  key={`${m.group}-${m.mhz}-${idx}`}
-                  title={`${m.group}: ${m.mhz} МГц`}
-                  style={{
-                    position: "absolute",
-                    top: -3,
-                    bottom: -3,
-                    width: 2,
-                    left: `${left}%`,
-                    background: c,
-                    opacity: 0.95,
-                    borderRadius: 2,
-                    boxShadow: "0 0 0 1px rgba(0,0,0,.35)"
-                  }}
-                />
-              );
-            })}
           </div>
 
           <div className="freqTicks">
             <span>{PRICING.rangeMinMHz} МГц</span>
             <span>{PRICING.rangeMaxMHz} МГц</span>
           </div>
-
-          {/* ✅ легенда під шкалою */}
-          {legendItems.length ? (
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 10 }}>
-              {legendItems.map((g) => {
-                const c = MARKER_COLORS[g] || "rgba(255,255,255,.9)";
-                return (
-                  <div key={g} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{
-                      width: 10, height: 10, borderRadius: 999,
-                      background: c,
-                      boxShadow: "0 0 0 1px rgba(0,0,0,.35)"
-                    }} />
-                    <span style={{ fontSize: 12, color: "rgba(232,238,247,.9)" }}>{g}</span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
 
           <div className="freqList">
             {coverageSegments.length === 0 ? (
@@ -539,7 +455,6 @@ export default function App() {
               onChange={(e) => {
                 const next = e.target.value;
                 setBattery(next);
-                if (next === "none") setExtraBattery(false);
               }}
             >
               {Object.entries(PRICING.batteries).map(([k, v]) => (
@@ -550,16 +465,17 @@ export default function App() {
             </select>
             <div className="small" style={{ marginTop: 6 }}>{runtimeHint}</div>
 
-            {/* ✅ Додатковий акум */}
-            <label className="chk" style={{ marginTop: 10, opacity: battery === "none" ? 0.6 : 1 }}>
-              <input
-                type="checkbox"
-                disabled={battery === "none"}
-                checked={extraBattery}
-                onChange={(e) => setExtraBattery(e.target.checked)}
-              />
-              Додатковий акумулятор (1 шт) {battery === "none" ? "" : `(+${fmtUAH(PRICING.batteries[battery].price)})`}
-            </label>
+            {/* ✅ Додатковий акум — окремий вибір */}
+            <div style={{ marginTop: 10 }}>
+              <span className="label">Додатковий акумулятор (опційно)</span>
+              <select value={extraBatteryType} onChange={(e) => setExtraBatteryType(e.target.value)}>
+                {Object.entries(PRICING.batteries).map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {k === "none" ? "Без додаткового акума" : `${v.label} — ${fmtUAH(v.price)}`}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -588,36 +504,55 @@ export default function App() {
               </label>
             </div>
 
-            {/* ✅ Лого / Охолодження */}
-            <div className="row" style={{ marginTop: 10 }}>
-              <label className="chk">
-                <input
-                  type="checkbox"
-                  checked={opt.logo}
-                  onChange={(e) => setOpt((p) => ({ ...p, logo: e.target.checked }))}
-                />
-                Лого {PRICING.options.logo?.price ? `(+${fmtUAH(PRICING.options.logo.price)})` : ""}
-              </label>
+            <div className="hr" />
 
-              <label className="chk">
-                <input
-                  type="checkbox"
-                  checked={opt.extraCooling}
-                  onChange={(e) => setOpt((p) => ({ ...p, extraCooling: e.target.checked }))}
-                />
-                Додаткове охолодження {PRICING.options.extraCooling?.price ? `(+${fmtUAH(PRICING.options.extraCooling.price)})` : ""}
-              </label>
-            </div>
+            {/* ✅ Окремо: бренд/маркування (grid + block) */}
+            <span className="sectionTitle">Брендування / маркування</span>
+            <div className="block">
+              <div className="optGrid">
+                <label className="chk">
+                  <input
+                    type="checkbox"
+                    checked={opt.logo}
+                    onChange={(e) => setOpt((p) => ({ ...p, logo: e.target.checked }))}
+                  />
+                  {PRICING.options.logo.label} (+{fmtUAH(PRICING.options.logo.price)})
+                </label>
 
-            {/* ✅ Позивний */}
-            <div style={{ marginTop: 10 }}>
-              <span className="label">Позивний (за бажанням)</span>
-              <input
-                type="text"
-                value={callsign}
-                onChange={(e) => setCallsign(e.target.value)}
-                placeholder="Напр.: Ворон / Беркут / ..."
-              />
+                <label className="chk">
+                  <input
+                    type="checkbox"
+                    checked={opt.callsign}
+                    onChange={(e) => {
+                      const on = e.target.checked;
+                      setOpt((p) => ({ ...p, callsign: on }));
+                      if (!on) setCallsignText("");
+                    }}
+                  />
+                  {PRICING.options.callsign.label} (+{fmtUAH(PRICING.options.callsign.price)})
+                </label>
+
+                <label className="chk">
+                  <input
+                    type="checkbox"
+                    checked={opt.uniquePaint}
+                    onChange={(e) => setOpt((p) => ({ ...p, uniquePaint: e.target.checked }))}
+                  />
+                  {PRICING.options.uniquePaint.label} (ціна договірна)
+                </label>
+              </div>
+
+              {opt.callsign ? (
+                <div style={{ marginTop: 10 }}>
+                  <span className="label">Позивний (текст)</span>
+                  <input
+                    type="text"
+                    value={callsignText}
+                    onChange={(e) => setCallsignText(e.target.value)}
+                    placeholder="Напр.: Ворон / Беркут / ..."
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
 
