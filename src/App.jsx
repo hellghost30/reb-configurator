@@ -220,18 +220,86 @@ export default function App() {
     setToast("");
   }
 
+  // ===== Messenger helpers (без utils.js) =====
+  function openTelegram(target, text) {
+    // target: username (без @) або повний URL tg/https
+    const t = String(target || "").trim();
+    const enc = encodeURIComponent(text || "");
+
+    if (!t) return false;
+
+    let url = "";
+    if (t.startsWith("http://") || t.startsWith("https://") || t.startsWith("tg://")) {
+      url = t.includes("?") ? `${t}&text=${enc}` : `${t}?text=${enc}`;
+    } else {
+      const u = t.replace(/^@/, "");
+      url = `https://t.me/${u}?text=${enc}`;
+    }
+
+    try {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function openSignal(phone, text) {
+    const p = String(phone || "").trim();
+    if (!p) return false;
+
+    // signal://send?phone=...&text=...
+    const clean = p.replace(/[^\d+]/g, "");
+    const url = `signal://send?phone=${encodeURIComponent(clean)}&text=${encodeURIComponent(text || "")}`;
+
+    try {
+      // Часто краще саме location.href, щоб відкрити апку
+      window.location.href = url;
+      return true;
+    } catch {
+      try {
+        window.open(url, "_blank", "noopener,noreferrer");
+        return true;
+      } catch {
+        return false;
+      }
+    }
+  }
+
   async function onCopy() {
     if (counts.total === 0) return;
     const ok = await copyToClipboard(summaryText);
-    setToast(ok ? "Текст скопійовано. Якщо WhatsApp не підставив — встав вручну (Paste)." : "Не вдалося скопіювати");
+    setToast(ok ? "Текст скопійовано. Якщо месенджер не підставив — встав вручну (Paste)." : "Не вдалося скопіювати");
     setTimeout(() => setToast(""), 1600);
   }
 
-  async function onOrder() {
+  async function onOrderWA() {
     if (counts.total === 0) return;
     await onCopy();
     const phone = import.meta.env.VITE_WA_PHONE || "380000000000";
     openWhatsApp(phone, summaryText);
+  }
+
+  async function onOrderTG() {
+    if (counts.total === 0) return;
+    await onCopy();
+    const tg = import.meta.env.VITE_TG_USERNAME || "";
+    const ok = openTelegram(tg, summaryText);
+    if (!ok) {
+      setToast("Не задано Telegram. Додай VITE_TG_USERNAME у Render/ENV.");
+      setTimeout(() => setToast(""), 2200);
+    }
+  }
+
+  async function onOrderSignal() {
+    if (counts.total === 0) return;
+    await onCopy();
+    const phone = import.meta.env.VITE_SIGNAL_PHONE || "";
+    const ok = openSignal(phone, summaryText);
+    if (!ok) {
+      setToast("Не задано Signal. Додай VITE_SIGNAL_PHONE у Render/ENV.");
+      setTimeout(() => setToast(""), 2200);
+    }
   }
 
   return (
@@ -378,7 +446,7 @@ export default function App() {
         {toast ? <div className="toast">{toast}</div> : null}
       </div>
 
-      {/* ===== Price & WhatsApp only when modules selected ===== */}
+      {/* ===== Price & messenger buttons only when modules selected ===== */}
       {counts.total > 0 ? (
         <>
           <div className="card" style={{ marginTop: 12 }}>
@@ -390,12 +458,17 @@ export default function App() {
 
             <div className="hr" />
 
-            <div className="small" style={{ marginBottom: 8 }}>Текст для WhatsApp</div>
+            <div className="small" style={{ marginBottom: 8 }}>Текст для месенджерів</div>
             <textarea readOnly value={summaryText} />
 
             <div className="row" style={{ justifyContent: "space-between", marginTop: 12 }}>
               <button onClick={onCopy}>Скопіювати текст</button>
-              <button className="btn2" onClick={onOrder}>Замовити (WhatsApp)</button>
+
+              <div className="row" style={{ gap: 10, justifyContent: "flex-end" }}>
+                <button onClick={onOrderTG}>Замовити (Telegram)</button>
+                <button onClick={onOrderSignal}>Замовити (Signal)</button>
+                <button className="btn2" onClick={onOrderWA}>Замовити (WhatsApp)</button>
+              </div>
             </div>
 
             {toast ? <div className="toast">{toast}</div> : null}
@@ -410,7 +483,9 @@ export default function App() {
               </div>
               <div className="stickyBtns">
                 <button onClick={onCopy}>Копіювати</button>
-                <button className="btn2" onClick={onOrder}>Замовити</button>
+                <button onClick={onOrderTG}>Telegram</button>
+                <button onClick={onOrderSignal}>Signal</button>
+                <button className="btn2" onClick={onOrderWA}>WhatsApp</button>
               </div>
             </div>
           </div>
