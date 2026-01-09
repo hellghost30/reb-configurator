@@ -53,9 +53,81 @@ export function fmtUAH(n) {
     }
   }
   
+  function isIOS() {
+    const ua = navigator.userAgent || "";
+    const platform = navigator.platform || "";
+    const iOSLike = /iPad|iPhone|iPod/i.test(ua) || /iPad|iPhone|iPod/i.test(platform);
+    const iPadOS13Plus = platform === "MacIntel" && navigator.maxTouchPoints > 1;
+    return iOSLike || iPadOS13Plus;
+  }
+  
+  function openAppLink(appUrl, fallbackUrl) {
+    // На iOS custom-scheme краще відкривати через location.href, а не window.open
+    // + робимо fallback (якщо додатка нема або Safari заблокував)
+    const useIOS = isIOS();
+  
+    if (useIOS) {
+      const t = setTimeout(() => {
+        if (fallbackUrl) window.open(fallbackUrl, "_blank");
+      }, 900);
+  
+      window.location.href = appUrl;
+  
+      // якщо одразу перейшло — таймер не критичний
+      setTimeout(() => clearTimeout(t), 1200);
+      return;
+    }
+  
+    // Android/desktop: можна пробувати нову вкладку або self
+    try {
+      window.open(appUrl, "_blank");
+    } catch {
+      window.location.href = appUrl;
+    }
+  
+    if (fallbackUrl) {
+      setTimeout(() => {
+        try {
+          window.open(fallbackUrl, "_blank");
+        } catch {
+          /* ignore */
+        }
+      }, 900);
+    }
+  }
+  
   export function openWhatsApp(phone, text) {
     const clean = String(phone || "").replace(/[^\d]/g, "");
     const url = `https://wa.me/${clean}?text=${encodeURIComponent(text)}`;
     window.open(url, "_blank");
+  }
+  
+  /**
+   * Telegram:
+   * - app deep link: tg://msg_url?text=...
+   * - web fallback: https://t.me/share/url?text=...
+   *
+   * (Примітка: "в конкретний чат" з підстановкою тексту Telegram не дає стабільно.
+   * Тому відкриваємо compose/share з готовим текстом.)
+   */
+  export function openTelegram(text) {
+    const enc = encodeURIComponent(text || "");
+    const appUrl = `tg://msg_url?text=${enc}`;
+    const webUrl = `https://t.me/share/url?text=${enc}`;
+    openAppLink(appUrl, webUrl);
+  }
+  
+  /**
+   * Signal:
+   * - app deep link: signal://send?phone=...&text=...
+   * - web fallback: https://signal.org/download/
+   */
+  export function openSignal(phone, text) {
+    const clean = String(phone || "").replace(/[^\d]/g, "");
+    const phoneE164 = clean ? `+${clean}` : "";
+    const enc = encodeURIComponent(text || "");
+    const appUrl = `signal://send${phoneE164 ? `?phone=${encodeURIComponent(phoneE164)}&text=${enc}` : `?text=${enc}`}`;
+    const webUrl = `https://signal.org/download/`;
+    openAppLink(appUrl, webUrl);
   }
   

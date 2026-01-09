@@ -1,10 +1,21 @@
 import React, { useMemo, useState } from "react";
 import { PRICING } from "./pricing";
-import { bandLabel, copyToClipboard, fmtUAH, hoursToHM, mhzToHuman, openWhatsApp } from "./utils";
+import {
+  bandLabel,
+  copyToClipboard,
+  fmtUAH,
+  hoursToHM,
+  mhzToHuman,
+  openWhatsApp
+} from "./utils";
 
 function buildBands() {
   const bands = [];
-  for (let start = PRICING.rangeMinMHz; start < PRICING.rangeMaxMHz; start += PRICING.uiStepMHz) {
+  for (
+    let start = PRICING.rangeMinMHz;
+    start < PRICING.rangeMaxMHz;
+    start += PRICING.uiStepMHz
+  ) {
     const end = Math.min(PRICING.rangeMaxMHz, start + PRICING.uiStepMHz);
     bands.push({ id: `${start}-${end}`, start, end, title: bandLabel(start, end) });
     if (end >= PRICING.rangeMaxMHz) break;
@@ -39,7 +50,8 @@ export default function App() {
   const [toast, setToast] = useState("");
 
   const counts = useMemo(() => {
-    let c50 = 0, c100 = 0;
+    let c50 = 0,
+      c100 = 0;
     for (const k in sel) {
       if (sel[k] === "50W") c50++;
       if (sel[k] === "100W") c100++;
@@ -94,8 +106,12 @@ export default function App() {
     if (!b || b.energyWh <= 0 || counts.total === 0) return null;
 
     const V = PRICING.nominalVoltage;
-    const Imin = counts.c50 * PRICING.modules["50W"].Imin + counts.c100 * PRICING.modules["100W"].Imin;
-    const Imax = counts.c50 * PRICING.modules["50W"].Imax + counts.c100 * PRICING.modules["100W"].Imax;
+    const Imin =
+      counts.c50 * PRICING.modules["50W"].Imin +
+      counts.c100 * PRICING.modules["100W"].Imin;
+    const Imax =
+      counts.c50 * PRICING.modules["50W"].Imax +
+      counts.c100 * PRICING.modules["100W"].Imax;
 
     const best = b.energyWh / (V * Imin);
     const worst = b.energyWh / (V * Imax);
@@ -118,10 +134,18 @@ export default function App() {
       (opt.charger220 ? PRICING.options.charger220.price : 0) +
       (opt.charger12_24 ? PRICING.options.charger12_24.price : 0);
 
-    const mq = Number.isFinite(magQty) ? Math.max(0, Math.min(999, Math.trunc(magQty))) : 0;
+    const mq = Number.isFinite(magQty)
+      ? Math.max(0, Math.min(999, Math.trunc(magQty)))
+      : 0;
     const magCost = mq * PRICING.options.magneticFeet.price;
 
-    const cost = modulesCost + battCost + caseCost + PRICING.baseIncludedCost + chargerCost + magCost;
+    const cost =
+      modulesCost +
+      battCost +
+      caseCost +
+      PRICING.baseIncludedCost +
+      chargerCost +
+      magCost;
 
     // робота/прибуток включаємо, але окремо не показуємо
     const work = counts.total <= 7 ? PRICING.work.upTo7 : PRICING.work.over7;
@@ -131,10 +155,13 @@ export default function App() {
   }, [counts, caseType, battery, opt, magQty, hiBandExtraCost]);
 
   const runtimeHint = useMemo(() => {
-    if (counts.total === 0) return "Спочатку обери хоча б 1 модуль — потім підберемо акум і порахуємо час роботи.";
+    if (counts.total === 0)
+      return "Спочатку обери хоча б 1 модуль — потім підберемо акум і порахуємо час роботи.";
     if (battery === "none") return "Орієнтовний час роботи зʼявиться після вибору акума.";
     if (!runtime) return "";
-    return `Орієнтовний час роботи (28В): ${hoursToHM(runtime.worst)} – ${hoursToHM(runtime.best)} (струм ~${Math.round(runtime.Imin)}–${Math.round(runtime.Imax)} А)`;
+    return `Орієнтовний час роботи (28В): ${hoursToHM(runtime.worst)} – ${hoursToHM(
+      runtime.best
+    )} (струм ~${Math.round(runtime.Imin)}–${Math.round(runtime.Imax)} А)`;
   }, [battery, counts, runtime]);
 
   const summaryText = useMemo(() => {
@@ -153,7 +180,9 @@ export default function App() {
     if (opt.charger220) optLines.push("• Зарядний пристрій 220В");
     if (opt.charger12_24) optLines.push("• Зарядний пристрій 12/24В");
 
-    const mq = Number.isFinite(magQty) ? Math.max(0, Math.min(999, Math.trunc(magQty))) : 0;
+    const mq = Number.isFinite(magQty)
+      ? Math.max(0, Math.min(999, Math.trunc(magQty)))
+      : 0;
     if (mq > 0) optLines.push(`• Магнітні ніжки: ${mq} шт`);
 
     const rtLine = runtime
@@ -179,8 +208,7 @@ export default function App() {
     lines.push(rtLine);
 
     lines.push("• Комплект: пульт керування + кабель до акумулятора (за замовчуванням)");
-    lines.push(`• Опції: ${optLines.length ? ("\n" + optLines.join("\n")) : "немає"}`);
-
+    lines.push(`• Опції: ${optLines.length ? "\n" + optLines.join("\n") : "немає"}`);
     lines.push(`• Орієнтовна вартість: ${fmtUAH(finalPrice)}`);
 
     return lines.join("\n");
@@ -222,10 +250,8 @@ export default function App() {
 
   // ===== Messenger helpers (без utils.js) =====
   function openTelegram(target, text) {
-    // target: username (без @) або повний URL tg/https
     const t = String(target || "").trim();
     const enc = encodeURIComponent(text || "");
-
     if (!t) return false;
 
     let url = "";
@@ -253,7 +279,7 @@ export default function App() {
     const url = `signal://send?phone=${encodeURIComponent(clean)}&text=${encodeURIComponent(text || "")}`;
 
     try {
-      // Часто краще саме location.href, щоб відкрити апку
+      // Для iOS/Android зазвичай краще location.href
       window.location.href = url;
       return true;
     } catch {
@@ -448,48 +474,30 @@ export default function App() {
 
       {/* ===== Price & messenger buttons only when modules selected ===== */}
       {counts.total > 0 ? (
-        <>
-          <div className="card" style={{ marginTop: 12 }}>
-            <div className="small">Орієнтовна вартість</div>
-            <div className="big">{fmtUAH(finalPrice)}</div>
-            <div className="small" style={{ marginTop: 6 }}>
-              {runtime ? `Орієнтовний час роботи (28В): ${hoursToHM(runtime.worst)} – ${hoursToHM(runtime.best)}` : ""}
-            </div>
-
-            <div className="hr" />
-
-            <div className="small" style={{ marginBottom: 8 }}>Текст для месенджерів</div>
-            <textarea readOnly value={summaryText} />
-
-            <div className="row" style={{ justifyContent: "space-between", marginTop: 12 }}>
-              <button onClick={onCopy}>Скопіювати текст</button>
-
-              <div className="row" style={{ gap: 10, justifyContent: "flex-end" }}>
-                <button onClick={onOrderTG}>Замовити (Telegram)</button>
-                <button onClick={onOrderSignal}>Замовити (Signal)</button>
-                <button className="btn2" onClick={onOrderWA}>Замовити (WhatsApp)</button>
-              </div>
-            </div>
-
-            {toast ? <div className="toast">{toast}</div> : null}
+        <div className="card" style={{ marginTop: 12 }}>
+          <div className="small">Орієнтовна вартість</div>
+          <div className="big">{fmtUAH(finalPrice)}</div>
+          <div className="small" style={{ marginTop: 6 }}>
+            {runtime ? `Орієнтовний час роботи (28В): ${hoursToHM(runtime.worst)} – ${hoursToHM(runtime.best)}` : ""}
           </div>
 
-          <div className="sticky">
-            <div className="stickyInner">
-              <div className="stickyPrice">
-                <div className="t">Орієнтовна вартість</div>
-                <div className="v">{fmtUAH(finalPrice)}</div>
-                <div className="t">{runtime ? `Час: ${hoursToHM(runtime.worst)} – ${hoursToHM(runtime.best)}` : ""}</div>
-              </div>
-              <div className="stickyBtns">
-                <button onClick={onCopy}>Копіювати</button>
-                <button onClick={onOrderTG}>Telegram</button>
-                <button onClick={onOrderSignal}>Signal</button>
-                <button className="btn2" onClick={onOrderWA}>WhatsApp</button>
-              </div>
+          <div className="hr" />
+
+          <div className="small" style={{ marginBottom: 8 }}>Текст для месенджерів</div>
+          <textarea readOnly value={summaryText} />
+
+          <div className="row" style={{ justifyContent: "space-between", marginTop: 12 }}>
+            <button onClick={onCopy}>Скопіювати текст</button>
+
+            <div className="row" style={{ gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={onOrderTG}>Замовити (Telegram)</button>
+              <button onClick={onOrderSignal}>Замовити (Signal)</button>
+              <button className="btn2" onClick={onOrderWA}>Замовити (WhatsApp)</button>
             </div>
           </div>
-        </>
+
+          {toast ? <div className="toast">{toast}</div> : null}
+        </div>
       ) : null}
     </div>
   );
