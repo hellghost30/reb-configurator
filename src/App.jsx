@@ -119,13 +119,16 @@ export default function App() {
     return { best, worst, Imin, Imax };
   }, [battery, counts]);
 
+  // ✅ PROFIT тільки від модулів. Зарядка/магніти/акум/корпус/робота/надбавка — без %
   const finalPrice = useMemo(() => {
     if (counts.total === 0) return 0;
 
-    const modulesCost =
+    const modulesBase =
       counts.c50 * PRICING.modules["50W"].price +
-      counts.c100 * PRICING.modules["100W"].price +
-      hiBandExtraCost;
+      counts.c100 * PRICING.modules["100W"].price;
+
+    // надбавка 2+ ГГц — окремо, БЕЗ %
+    const modulesExtras = hiBandExtraCost;
 
     const caseCost = PRICING.cases[caseType].price;
     const battCost = PRICING.batteries[battery].price;
@@ -139,19 +142,27 @@ export default function App() {
       : 0;
     const magCost = mq * PRICING.options.magneticFeet.price;
 
-    const cost =
-      modulesCost +
-      battCost +
-      caseCost +
-      PRICING.baseIncludedCost +
-      chargerCost +
-      magCost;
+    // “за замовчуванням” — окремо, БЕЗ %
+    const baseIncluded = PRICING.baseIncludedCost;
 
-    // робота/прибуток включаємо, але окремо не показуємо
+    // робота — окремо, БЕЗ %
     const work = counts.total <= 7 ? PRICING.work.upTo7 : PRICING.work.over7;
-    const profit = cost * PRICING.profitCoef;
 
-    return Math.round(cost + work + profit);
+    // прибуток — ТІЛЬКИ від модулів (без hiBandExtra)
+    const profit = modulesBase * PRICING.profitCoef;
+
+    const total =
+      modulesBase +
+      modulesExtras +
+      caseCost +
+      battCost +
+      baseIncluded +
+      chargerCost +
+      magCost +
+      work +
+      profit;
+
+    return Math.round(total);
   }, [counts, caseType, battery, opt, magQty, hiBandExtraCost]);
 
   const runtimeHint = useMemo(() => {
@@ -270,32 +281,6 @@ export default function App() {
     }
   }
 
-  // ✅ FIX: Signal через signal.me (працює стабільніше на мобільних, ніж signal:// з браузера)
-  // Текст ми вже кладемо в буфер через onCopy(), тому тут просто відкриваємо чат/контакт.
-  function openSignal(phone) {
-    const p = String(phone || "").trim();
-    if (!p) return false;
-
-    // приводимо до E.164: +380...
-    let clean = p.replace(/[^\d+]/g, "");
-    if (clean && clean[0] !== "+") clean = "+" + clean;
-
-    // signal.me/#p/+E164
-    const url = `https://signal.me/#p/${encodeURIComponent(clean)}`;
-
-    try {
-      window.open(url, "_blank", "noopener,noreferrer");
-      return true;
-    } catch {
-      try {
-        window.location.href = url;
-        return true;
-      } catch {
-        return false;
-      }
-    }
-  }
-
   async function onCopy() {
     if (counts.total === 0) return;
     const ok = await copyToClipboard(summaryText);
@@ -321,23 +306,8 @@ export default function App() {
     }
   }
 
-  async function onOrderSignal() {
-    if (counts.total === 0) return;
-    await onCopy();
-    const phone = import.meta.env.VITE_SIGNAL_PHONE || "";
-    const ok = openSignal(phone);
-    if (!ok) {
-      setToast("Не задано Signal. Додай VITE_SIGNAL_PHONE у Render/ENV.");
-      setTimeout(() => setToast(""), 2200);
-    } else {
-      // підказка тільки якщо Signal відкрився: текст уже в буфері
-      setToast("Signal відкрито. Встав текст у чат (Paste).");
-      setTimeout(() => setToast(""), 2000);
-    }
-  }
-
   return (
-    <div className="wrap">
+    <div className="wrap" style={{ paddingBottom: 140 }}>
       <h1>Конструктор РЕБ</h1>
       <p className="sub">
         Обери діапазони <b>{mhzToHuman(PRICING.rangeMinMHz)}–{mhzToHuman(PRICING.rangeMaxMHz)}</b> і потужність для кожного (можна змішувати 50/100 Вт).
@@ -482,7 +452,7 @@ export default function App() {
 
       {/* ===== Price & messenger buttons only when modules selected ===== */}
       {counts.total > 0 ? (
-        <div className="card" style={{ marginTop: 12 }}>
+        <div className="card" style={{ marginTop: 12, marginBottom: 40 }}>
           <div className="small">Орієнтовна вартість</div>
           <div className="big">{fmtUAH(finalPrice)}</div>
           <div className="small" style={{ marginTop: 6 }}>
@@ -494,12 +464,25 @@ export default function App() {
           <div className="small" style={{ marginBottom: 8 }}>Текст для месенджерів</div>
           <textarea readOnly value={summaryText} />
 
-          <div className="row" style={{ justifyContent: "space-between", marginTop: 12 }}>
+          <div
+            className="row"
+            style={{
+              justifyContent: "space-between",
+              marginTop: 12,
+              position: "sticky",
+              bottom: 16,
+              background: "rgba(10,14,20,.92)",
+              border: "1px solid rgba(255,255,255,.08)",
+              borderRadius: 14,
+              padding: 10,
+              backdropFilter: "blur(10px)",
+              zIndex: 5
+            }}
+          >
             <button onClick={onCopy}>Скопіювати текст</button>
 
             <div className="row" style={{ gap: 10, justifyContent: "flex-end" }}>
               <button onClick={onOrderTG}>Замовити (Telegram)</button>
-              <button onClick={onOrderSignal}>Замовити (Signal)</button>
               <button className="btn2" onClick={onOrderWA}>Замовити (WhatsApp)</button>
             </div>
           </div>
