@@ -29,6 +29,12 @@ const MAX_MODULES = 10;
 export default function App() {
   const bands = useMemo(() => buildBands(), []);
 
+  // Підстраховка, щоб нічого не падало якщо pricing десь старий
+  const OPT = PRICING?.options ?? {};
+  const BAT = PRICING?.batteries ?? {};
+  const CASES = PRICING?.cases ?? {};
+  const MODS = PRICING?.modules ?? {};
+
   // id -> "none" | "50W" | "100W"
   const [sel, setSel] = useState(() => {
     const m = {};
@@ -40,12 +46,13 @@ export default function App() {
   const [caseType, setCaseType] = useState("auto");
 
   const [battery, setBattery] = useState("none");
-  // ✅ додатковий акум тепер можна вибрати будь-який (або "немає")
+
+  // ✅ додатковий акум можна вибрати будь-який
   const [extraBatteryType, setExtraBatteryType] = useState("none");
 
   const [magQty, setMagQty] = useState(0);
 
-  // ✅ опції (без охолодження)
+  // ✅ опції
   const [opt, setOpt] = useState({
     charger220: false,
     charger12_24: false,
@@ -79,14 +86,14 @@ export default function App() {
       if (v === "none") continue;
 
       const start = b.start;
-      const width = PRICING.modules[v].bandwidthMHz; // 100 або 170
+      const width = MODS?.[v]?.bandwidthMHz ?? 0; // 100 або 170
       const end = Math.min(PRICING.rangeMaxMHz, start + width);
 
       segs.push({ id: b.id, type: v, start, end });
     }
     segs.sort((a, b) => a.start - b.start);
     return segs;
-  }, [bands, sel]);
+  }, [bands, sel, MODS]);
 
   function mhzToPct(mhz) {
     const min = PRICING.rangeMinMHz;
@@ -107,57 +114,57 @@ export default function App() {
   }, [bands, sel]);
 
   const runtime = useMemo(() => {
-    const b = PRICING.batteries[battery];
+    const b = BAT?.[battery];
     if (!b || b.energyWh <= 0 || counts.total === 0) return null;
 
     const V = PRICING.nominalVoltage;
     const Imin =
-      counts.c50 * PRICING.modules["50W"].Imin +
-      counts.c100 * PRICING.modules["100W"].Imin;
+      counts.c50 * (MODS?.["50W"]?.Imin ?? 0) +
+      counts.c100 * (MODS?.["100W"]?.Imin ?? 0);
     const Imax =
-      counts.c50 * PRICING.modules["50W"].Imax +
-      counts.c100 * PRICING.modules["100W"].Imax;
+      counts.c50 * (MODS?.["50W"]?.Imax ?? 0) +
+      counts.c100 * (MODS?.["100W"]?.Imax ?? 0);
+
+    if (!V || Imin <= 0 || Imax <= 0) return null;
 
     const best = b.energyWh / (V * Imin);
     const worst = b.energyWh / (V * Imax);
 
     return { best, worst, Imin, Imax };
-  }, [battery, counts]);
+  }, [battery, counts, BAT, MODS]);
 
   // ✅ PROFIT тільки від модулів. Все інше — без %
   const finalPrice = useMemo(() => {
     if (counts.total === 0) return 0;
 
     const modulesBase =
-      counts.c50 * PRICING.modules["50W"].price +
-      counts.c100 * PRICING.modules["100W"].price;
+      counts.c50 * (MODS?.["50W"]?.price ?? 0) +
+      counts.c100 * (MODS?.["100W"]?.price ?? 0);
 
     const modulesExtras = hiBandExtraCost;
 
-    const caseCost = PRICING.cases[caseType].price;
+    const caseCost = CASES?.[caseType]?.price ?? 0;
 
-    const battCost = PRICING.batteries[battery]?.price ?? 0;
-    const extraBattCost = PRICING.batteries[extraBatteryType]?.price ?? 0;
+    const battCost = BAT?.[battery]?.price ?? 0;
+    const extraBattCost = BAT?.[extraBatteryType]?.price ?? 0;
 
     const chargerCost =
-      (opt.charger220 ? PRICING.options.charger220.price : 0) +
-      (opt.charger12_24 ? PRICING.options.charger12_24.price : 0);
+      (opt.charger220 ? (OPT?.charger220?.price ?? 0) : 0) +
+      (opt.charger12_24 ? (OPT?.charger12_24?.price ?? 0) : 0);
 
-    const mq = Number.isFinite(magQty)
-      ? Math.max(0, Math.min(999, Math.trunc(magQty)))
-      : 0;
-    const magCost = mq * PRICING.options.magneticFeet.price;
+    const mq = Number.isFinite(magQty) ? Math.max(0, Math.min(999, Math.trunc(magQty))) : 0;
+    const magCost = mq * (OPT?.magneticFeet?.price ?? 0);
 
-    const baseIncluded = PRICING.baseIncludedCost;
+    const baseIncluded = PRICING.baseIncludedCost ?? 0;
 
-    const work = counts.total <= 7 ? PRICING.work.upTo7 : PRICING.work.over7;
+    const work = counts.total <= 7 ? (PRICING.work?.upTo7 ?? 0) : (PRICING.work?.over7 ?? 0);
 
     // ✅ бренд/маркування
-    const logoCost = opt.logo ? (PRICING.options.logo?.price ?? 0) : 0;
-    const callsignCost = opt.callsign ? (PRICING.options.callsign?.price ?? 0) : 0;
-    const uniquePaintCost = 0; // договірна
+    const logoCost = opt.logo ? (OPT?.logo?.price ?? 0) : 0;
+    const callsignCost = opt.callsign ? (OPT?.callsign?.price ?? 0) : 0;
+    const uniquePaintCost = 0; // договірна (в ціну не додаємо)
 
-    const profit = modulesBase * PRICING.profitCoef;
+    const profit = modulesBase * (PRICING.profitCoef ?? 0);
 
     const total =
       modulesBase +
@@ -175,7 +182,7 @@ export default function App() {
       profit;
 
     return Math.round(total);
-  }, [counts, caseType, battery, extraBatteryType, opt, magQty, hiBandExtraCost]);
+  }, [counts, caseType, battery, extraBatteryType, opt, magQty, hiBandExtraCost, OPT, BAT, CASES, MODS]);
 
   const runtimeHint = useMemo(() => {
     if (counts.total === 0)
@@ -204,13 +211,12 @@ export default function App() {
     if (opt.charger220) optLines.push("• Зарядний пристрій 220В");
     if (opt.charger12_24) optLines.push("• Зарядний пристрій 12/24В");
 
-    const mq = Number.isFinite(magQty)
-      ? Math.max(0, Math.min(999, Math.trunc(magQty)))
-      : 0;
+    const mq = Number.isFinite(magQty) ? Math.max(0, Math.min(999, Math.trunc(magQty))) : 0;
     if (mq > 0) optLines.push(`• Магнітні ніжки: ${mq} шт`);
 
     if (extraBatteryType !== "none") {
-      optLines.push(`• Додатковий акумулятор: ${PRICING.batteries[extraBatteryType].label}`);
+      const extraLabel = BAT?.[extraBatteryType]?.label ?? extraBatteryType;
+      optLines.push(`• Додатковий акумулятор: ${extraLabel}`);
     }
 
     if (opt.logo) optLines.push("• Логотип підрозділу/бригади на корпусі");
@@ -226,15 +232,9 @@ export default function App() {
 
     const lines = [];
     lines.push("Заявка (конструктор РЕБ):");
-    lines.push(
-      `• Модулі: всього ${counts.total} (50 Вт: ${counts.c50} • 100 Вт: ${counts.c100})`
-    );
-    lines.push(
-      `• Діапазони 50 Вт (≈100 МГц): ${chosen50.length ? chosen50.join(", ") : "не обрано"}`
-    );
-    lines.push(
-      `• Діапазони 100 Вт (≈170 МГц): ${chosen100.length ? chosen100.join(", ") : "не обрано"}`
-    );
+    lines.push(`• Модулі: всього ${counts.total} (50 Вт: ${counts.c50} • 100 Вт: ${counts.c100})`);
+    lines.push(`• Діапазони 50 Вт (≈100 МГц): ${chosen50.length ? chosen50.join(", ") : "не обрано"}`);
+    lines.push(`• Діапазони 100 Вт (≈170 МГц): ${chosen100.length ? chosen100.join(", ") : "не обрано"}`);
 
     if (coverageSegments.length) {
       lines.push("• Покриття (за вибором):");
@@ -244,8 +244,11 @@ export default function App() {
       }
     }
 
-    lines.push(`• Корпус/монтаж: ${PRICING.cases[caseType].label}`);
-    lines.push(`• Акумулятор: ${PRICING.batteries[battery].label}`);
+    const caseLabel = CASES?.[caseType]?.label ?? caseType;
+    const battLabel = BAT?.[battery]?.label ?? battery;
+
+    lines.push(`• Корпус/монтаж: ${caseLabel}`);
+    lines.push(`• Акумулятор: ${battLabel}`);
     lines.push(rtLine);
 
     lines.push("• Комплект: пульт керування + кабель до акумулятора (за замовчуванням)");
@@ -265,7 +268,9 @@ export default function App() {
     magQty,
     finalPrice,
     coverageSegments,
-    callsignText
+    callsignText,
+    BAT,
+    CASES
   ]);
 
   function setBand(id, val) {
@@ -335,11 +340,7 @@ export default function App() {
   async function onCopy() {
     if (counts.total === 0) return;
     const ok = await copyToClipboard(summaryText);
-    setToast(
-      ok
-        ? "Текст скопійовано. Якщо месенджер не підставив — встав вручну (Paste)."
-        : "Не вдалося скопіювати"
-    );
+    setToast(ok ? "Текст скопійовано. Якщо месенджер не підставив — встав вручну (Paste)." : "Не вдалося скопіювати");
     setTimeout(() => setToast(""), 1600);
   }
 
@@ -443,23 +444,20 @@ export default function App() {
           <div className="col">
             <span className="label">Корпус / монтаж (обовʼязково)</span>
             <select value={caseType} onChange={(e) => setCaseType(e.target.value)}>
-              <option value="auto">{PRICING.cases.auto.label} — {fmtUAH(PRICING.cases.auto.price)}</option>
-              <option value="portable">{PRICING.cases.portable.label} — {fmtUAH(PRICING.cases.portable.price)}</option>
+              {Object.entries(CASES).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {(v?.label ?? k)} — {fmtUAH(v?.price ?? 0)}
+                </option>
+              ))}
             </select>
           </div>
 
           <div className="col">
             <span className="label">Акумулятор (LiFePO4)</span>
-            <select
-              value={battery}
-              onChange={(e) => {
-                const next = e.target.value;
-                setBattery(next);
-              }}
-            >
-              {Object.entries(PRICING.batteries).map(([k, v]) => (
+            <select value={battery} onChange={(e) => setBattery(e.target.value)}>
+              {Object.entries(BAT).map(([k, v]) => (
                 <option key={k} value={k}>
-                  {v.label}{k === "none" ? "" : ` — ${fmtUAH(v.price)}`}
+                  {v?.label ?? k}{k === "none" ? "" : ` — ${fmtUAH(v?.price ?? 0)}`}
                 </option>
               ))}
             </select>
@@ -469,9 +467,9 @@ export default function App() {
             <div style={{ marginTop: 10 }}>
               <span className="label">Додатковий акумулятор (опційно)</span>
               <select value={extraBatteryType} onChange={(e) => setExtraBatteryType(e.target.value)}>
-                {Object.entries(PRICING.batteries).map(([k, v]) => (
+                {Object.entries(BAT).map(([k, v]) => (
                   <option key={k} value={k}>
-                    {k === "none" ? "Без додаткового акума" : `${v.label} — ${fmtUAH(v.price)}`}
+                    {k === "none" ? "Без додаткового акума" : `${v?.label ?? k} — ${fmtUAH(v?.price ?? 0)}`}
                   </option>
                 ))}
               </select>
@@ -485,40 +483,47 @@ export default function App() {
           <div className="col">
             <span className="label">Тип зарядного пристрою</span>
             <div className="row">
-              <label className="chk">
-                <input
-                  type="checkbox"
-                  checked={opt.charger220}
-                  onChange={(e) => setOpt((p) => ({ ...p, charger220: e.target.checked }))}
-                />
-                {PRICING.options.charger220.label} (+{fmtUAH(PRICING.options.charger220.price)})
-              </label>
+              {OPT?.charger220 ? (
+                <label className="chk">
+                  <input
+                    type="checkbox"
+                    checked={opt.charger220}
+                    onChange={(e) => setOpt((p) => ({ ...p, charger220: e.target.checked }))}
+                  />
+                  {OPT.charger220.label} (+{fmtUAH(OPT.charger220.price)})
+                </label>
+              ) : null}
 
-              <label className="chk">
-                <input
-                  type="checkbox"
-                  checked={opt.charger12_24}
-                  onChange={(e) => setOpt((p) => ({ ...p, charger12_24: e.target.checked }))}
-                />
-                {PRICING.options.charger12_24.label} (+{fmtUAH(PRICING.options.charger12_24.price)})
-              </label>
+              {OPT?.charger12_24 ? (
+                <label className="chk">
+                  <input
+                    type="checkbox"
+                    checked={opt.charger12_24}
+                    onChange={(e) => setOpt((p) => ({ ...p, charger12_24: e.target.checked }))}
+                  />
+                  {OPT.charger12_24.label} (+{fmtUAH(OPT.charger12_24.price)})
+                </label>
+              ) : null}
             </div>
 
             <div className="hr" />
 
-            {/* ✅ Окремо: бренд/маркування (grid + block) */}
-            <span className="sectionTitle">Брендування / маркування</span>
-            <div className="block">
-              <div className="optGrid">
+            {/* ✅ Окремо: бренд/маркування */}
+            <span className="label">Брендування / маркування</span>
+
+            <div className="row">
+              {OPT?.logo ? (
                 <label className="chk">
                   <input
                     type="checkbox"
                     checked={opt.logo}
                     onChange={(e) => setOpt((p) => ({ ...p, logo: e.target.checked }))}
                   />
-                  {PRICING.options.logo.label} (+{fmtUAH(PRICING.options.logo.price)})
+                  {OPT.logo.label} (+{fmtUAH(OPT.logo.price)})
                 </label>
+              ) : null}
 
+              {OPT?.callsign ? (
                 <label className="chk">
                   <input
                     type="checkbox"
@@ -529,35 +534,37 @@ export default function App() {
                       if (!on) setCallsignText("");
                     }}
                   />
-                  {PRICING.options.callsign.label} (+{fmtUAH(PRICING.options.callsign.price)})
+                  {OPT.callsign.label} (+{fmtUAH(OPT.callsign.price)})
                 </label>
+              ) : null}
 
+              {OPT?.uniquePaint ? (
                 <label className="chk">
                   <input
                     type="checkbox"
                     checked={opt.uniquePaint}
                     onChange={(e) => setOpt((p) => ({ ...p, uniquePaint: e.target.checked }))}
                   />
-                  {PRICING.options.uniquePaint.label} (ціна договірна)
+                  {OPT.uniquePaint.label} (ціна договірна)
                 </label>
-              </div>
-
-              {opt.callsign ? (
-                <div style={{ marginTop: 10 }}>
-                  <span className="label">Позивний (текст)</span>
-                  <input
-                    type="text"
-                    value={callsignText}
-                    onChange={(e) => setCallsignText(e.target.value)}
-                    placeholder="Напр.: Ворон / Беркут / ..."
-                  />
-                </div>
               ) : null}
             </div>
+
+            {opt.callsign ? (
+              <div style={{ marginTop: 10 }}>
+                <span className="label">Позивний (текст)</span>
+                <input
+                  type="text"
+                  value={callsignText}
+                  onChange={(e) => setCallsignText(e.target.value)}
+                  placeholder="Напр.: Ворон / Беркут / ..."
+                />
+              </div>
+            ) : null}
           </div>
 
           <div className="col">
-            <span className="label">Магнітні ніжки (1300 грн / шт)</span>
+            <span className="label">Магнітні ніжки ({fmtUAH(OPT?.magneticFeet?.price ?? 1300)} / шт)</span>
             <input
               type="number"
               min="0"
