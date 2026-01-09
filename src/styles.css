@@ -1,0 +1,160 @@
+:root{
+    --bg:#0b0f14; --card:#121824; --muted:#8ea0b8; --text:#e8eef7;
+    --stroke: rgba(255,255,255,.08);
+    --accent:#4ea1ff; --ok:#42d392; --warn:#ffcc66; --bad:#ff6b6b;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial; background:var(--bg); color:var(--text); }
+  .wrap{ max-width:980px; margin:0 auto; padding:16px; padding-bottom:96px; }
+  h1{ font-size:20px; margin:6px 0 8px; }
+  .sub{ font-size:13px; color:var(--muted); line-height:1.35; margin:0 0 14px; }
+  
+  .card{ background:var(--card); border:1px solid rgba(255,255,255,.07); border-radius:16px; padding:14px; }
+  .hr{ height:1px; background:var(--stroke); margin:12px 0; }
+  
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:flex-start; }
+  .col{ flex:1 1 240px; min-width:240px; }
+  
+  .label{ font-size:12px; color:var(--muted); margin-bottom:6px; display:block; }
+  
+  input, select, textarea, button{
+    border-radius:12px; border:1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.04); color:var(--text);
+    padding:10px 12px; font-size:14px;
+  }
+  textarea{ width:100%; min-height:150px; resize:vertical; }
+  button{ cursor:pointer; background:rgba(78,161,255,.18); border-color:rgba(78,161,255,.35); }
+  button:hover{ background:rgba(78,161,255,.25); }
+  .btn2{ background:rgba(66,211,146,.16); border-color:rgba(66,211,146,.35); }
+  .btn2:hover{ background:rgba(66,211,146,.22); }
+  .btnDanger{ background:rgba(255,107,107,.12); border-color:rgba(255,107,107,.30); }
+  .small{ font-size:12px; color:var(--muted); line-height:1.35; }
+  .big{ font-size:26px; font-weight:850; margin-top:2px; }
+  
+  .ranges{ display:grid; grid-template-columns:1fr; gap:8px; }
+  @media (min-width: 640px){ .ranges{ grid-template-columns:1fr 1fr; } }
+  
+  .rangeItem{
+    display:flex; justify-content:space-between; gap:10px; align-items:center;
+    padding:10px 12px; border-radius:14px; border:1px solid var(--stroke);
+    background:rgba(255,255,255,.03);
+  }
+  .rangeLeft{ min-width:0; }
+  .rangeTitle{ font-weight:650; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rangeSub{ font-size:11px; color:var(--muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  
+  .chk{
+    display:flex; gap:8px; align-items:center;
+    padding:8px 10px; border-radius:12px;
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.02);
+  }
+  
+  .toast{
+    margin-top:10px;
+    padding:10px 12px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(255,255,255,.03);
+    font-size:12px;
+    color:var(--text);
+  }
+  
+  .sticky{
+    position:fixed; left:0; right:0; bottom:0;
+    background:rgba(10,14,20,.92);
+    backdrop-filter: blur(10px);
+    border-top:1px solid rgba(255,255,255,.08);
+    padding:10px 12px;
+  }
+  .stickyInner{ max-width:980px; margin:0 auto; display:flex; gap:10px; justify-content:space-between; align-items:center; }
+  .stickyPrice{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .stickyPrice .t{ font-size:11px; color:var(--muted); }
+  .stickyPrice .v{ font-size:18px; font-weight:850; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .stickyBtns{ display:flex; gap:10px; }
+  @media (min-width: 980px){
+    .sticky{ display:none; }
+    .wrap{ padding-bottom:16px; }
+  }
+
+  /* ===== FIX: dark select dropdown ===== */
+  select {
+    background-color: #121824;
+    color: #e8eef7;
+  }
+  
+  select option {
+    background-color: #121824;
+    color: #e8eef7;
+  }
+  
+  select option:checked {
+    background-color: #1e2a44;
+    color: #ffffff;
+  }
+  
+  select option:hover {
+    background-color: #2b3a5e;
+    color: #ffffff;
+  }
+  
+  select:-moz-focusring {
+    color: transparent;
+    text-shadow: 0 0 0 #e8eef7;
+  }
+
+  /* ===== Frequency coverage bar ===== */
+  .freqCardTitle{
+    font-size:12px;
+    color:var(--muted);
+    margin:12px 0 8px;
+  }
+  .freqWrap{
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(255,255,255,.03);
+    border-radius:14px;
+    padding:10px;
+  }
+  .freqBar{
+    position:relative;
+    height:14px;
+    border-radius:999px;
+    background:rgba(255,255,255,.06);
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.08);
+  }
+  .freqSeg{
+    position:absolute;
+    top:0; bottom:0;
+    border-radius:999px;
+    background:rgba(78,161,255,.45);      /* 50W */
+    border:1px solid rgba(78,161,255,.55);
+  }
+  .freqSeg.w100{
+    background:rgba(66,211,146,.40);      /* 100W */
+    border-color:rgba(66,211,146,.55);
+  }
+  .freqTicks{
+    display:flex;
+    justify-content:space-between;
+    margin-top:8px;
+    font-size:11px;
+    color:var(--muted);
+  }
+  .freqList{
+    margin-top:10px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .freqItem{
+    font-size:12px;
+    color:var(--text);
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .freqItem .mut{
+    color:var(--muted);
+    white-space:nowrap;
+  }
