@@ -270,21 +270,25 @@ export default function App() {
     }
   }
 
-  function openSignal(phone, text) {
+  // ✅ FIX: Signal через signal.me (працює стабільніше на мобільних, ніж signal:// з браузера)
+  // Текст ми вже кладемо в буфер через onCopy(), тому тут просто відкриваємо чат/контакт.
+  function openSignal(phone) {
     const p = String(phone || "").trim();
     if (!p) return false;
 
-    // signal://send?phone=...&text=...
-    const clean = p.replace(/[^\d+]/g, "");
-    const url = `signal://send?phone=${encodeURIComponent(clean)}&text=${encodeURIComponent(text || "")}`;
+    // приводимо до E.164: +380...
+    let clean = p.replace(/[^\d+]/g, "");
+    if (clean && clean[0] !== "+") clean = "+" + clean;
+
+    // signal.me/#p/+E164
+    const url = `https://signal.me/#p/${encodeURIComponent(clean)}`;
 
     try {
-      // Для iOS/Android зазвичай краще location.href
-      window.location.href = url;
+      window.open(url, "_blank", "noopener,noreferrer");
       return true;
     } catch {
       try {
-        window.open(url, "_blank", "noopener,noreferrer");
+        window.location.href = url;
         return true;
       } catch {
         return false;
@@ -321,10 +325,14 @@ export default function App() {
     if (counts.total === 0) return;
     await onCopy();
     const phone = import.meta.env.VITE_SIGNAL_PHONE || "";
-    const ok = openSignal(phone, summaryText);
+    const ok = openSignal(phone);
     if (!ok) {
       setToast("Не задано Signal. Додай VITE_SIGNAL_PHONE у Render/ENV.");
       setTimeout(() => setToast(""), 2200);
+    } else {
+      // підказка тільки якщо Signal відкрився: текст уже в буфері
+      setToast("Signal відкрито. Встав текст у чат (Paste).");
+      setTimeout(() => setToast(""), 2000);
     }
   }
 
